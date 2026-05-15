@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0A0A0F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MyStuff">
+<title>MyStuff — Home Tracker</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --green:#00D4AA;--red:#FF4D6D;--amber:#FFB020;--blue:#4D9FFF;
+  --purple:#A78BFA;--dark:#0A0A0F;--card:#12121A;--panel:#1A1A28;
+  --border:#1E1E2E;--text:#E8E8F0;--muted:#6B6B8A;
+  --font-head:'Syne',sans-serif;--font-mono:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--dark);color:var(--text);font-family:var(--font-mono)}
+#app{display:flex;flex-direction:column;height:100dvh}
+.screen{display:none;flex:1;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;padding-bottom:90px}
+
+nav{display:flex;background:#12121A;border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:none;color:var(--muted);padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:color .2s;font-family:var(--font-mono);font-size:8px;letter-spacing:.5px}
+nav button.active{color:var(--green)}
+nav button svg{width:20px;height:20px}
+
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;padding-top:calc(14px + env(safe-area-inset-top))}
+.hdr h1{font-family:var(--font-head);font-size:22px;letter-spacing:3px}
+
+.badge{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;letter-spacing:1px}
+.badge-red   {background:color-mix(in srgb,var(--red)   15%,transparent);border:1px solid var(--red);   color:var(--red)}
+.badge-green {background:color-mix(in srgb,var(--green) 15%,transparent);border:1px solid var(--green); color:var(--green)}
+.badge-amber {background:color-mix(in srgb,var(--amber) 15%,transparent);border:1px solid var(--amber); color:var(--amber)}
+.badge-purple{background:color-mix(in srgb,var(--purple)15%,transparent);border:1px solid var(--purple);color:var(--purple)}
+.badge-blue  {background:color-mix(in srgb,var(--blue)  15%,transparent);border:1px solid var(--blue);  color:var(--blue)}
+
+.search-row{display:flex;align-items:center;gap:8px;background:var(--panel);margin:0 16px 10px;border-radius:12px;padding:10px 14px}
+.search-row input{flex:1;background:none;border:none;color:var(--text);font-size:14px;font-family:var(--font-mono);outline:none}
+.search-row input::placeholder{color:var(--muted)}
+
+.pills{display:flex;gap:8px;padding:0 16px 10px;overflow-x:auto;scrollbar-width:none}
+.pills::-webkit-scrollbar{display:none}
+.pill{border:1px solid var(--muted);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;background:none;cursor:pointer;font-family:var(--font-mono);letter-spacing:.5px;transition:all .15s}
+.pill.active    {background:var(--green);border-color:var(--green);color:var(--dark)}
+.pill.active-red{background:var(--red);  border-color:var(--red);  color:#fff}
+
+.item-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:0;margin-bottom:10px;cursor:pointer;transition:border-color .15s;animation:fadeUp .2s ease both;overflow:hidden}
+.item-card.missing{border-color:color-mix(in srgb,var(--red)    40%,transparent)}
+.item-card.broken {border-color:color-mix(in srgb,var(--purple) 40%,transparent)}
+.item-card:active{opacity:.8}
+.card-photo{width:100%;height:120px;object-fit:cover;display:block}
+.card-body{padding:14px}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start}
+.item-name{font-family:var(--font-head);font-size:16px;font-weight:800;margin-bottom:4px}
+.item-loc{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.item-loc svg{width:12px;height:12px;flex-shrink:0}
+.status-chip{border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;letter-spacing:.8px;white-space:nowrap;flex-shrink:0}
+.chip-home  {background:color-mix(in srgb,var(--green)  18%,transparent);color:var(--green)}
+.chip-out   {background:color-mix(in srgb,var(--red)    18%,transparent);color:var(--red)}
+.chip-broken{background:color-mix(in srgb,var(--purple) 18%,transparent);color:var(--purple)}
+.chip-empty {background:color-mix(in srgb,var(--amber)  18%,transparent);color:var(--amber)}
+.borrower-row{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--amber)}
+.borrower-row svg{width:13px;height:13px}
+
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;color:var(--muted);text-align:center}
+.empty svg{opacity:.4}
+.empty p{font-size:15px;line-height:1.6}
+
+.overlay{display:none;position:fixed;inset:0;background:#000a;z-index:200;align-items:flex-end}
+.overlay.open{display:flex}
+.sheet{background:var(--card);border-radius:24px 24px 0 0;width:100%;max-height:92dvh;overflow-y:auto;padding:24px 24px calc(24px + env(safe-area-inset-bottom));animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fadeUp {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.sheet-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:12px}
+.sheet-hdr h2{font-family:var(--font-head);font-size:20px;font-weight:800;flex:1}
+.close-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;flex-shrink:0}
+
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);gap:12px}
+.detail-row .dl{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.8px;flex-shrink:0}
+.detail-row .dv{font-size:13px;text-align:right}
+.sec-label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin:16px 0 8px}
+
+.checkout-box{background:var(--panel);border-radius:14px;padding:16px;margin:16px 0}
+.checkout-box h3{font-family:var(--font-head);font-size:13px;margin-bottom:12px;color:var(--muted);letter-spacing:1px}
+.co-field{margin-bottom:10px}
+.co-field label{display:block;font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:5px}
+.co-field label .req{color:var(--red)}
+.co-input{width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px 14px;font-size:14px;font-family:var(--font-mono);outline:none;transition:border-color .15s}
+.co-input:focus{border-color:var(--green)}
+.co-input.err{border-color:var(--red)!important;animation:shake .3s ease}
+.co-input::placeholder{color:var(--muted)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.co-err{font-size:11px;color:var(--red);margin-top:4px;display:none}
+.co-err.show{display:block}
+
+.report-row{display:flex;gap:8px;margin:12px 0}
+.report-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border-radius:12px;border:1px solid var(--border);background:var(--panel);cursor:pointer;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);transition:all .15s}
+.report-btn:active{opacity:.7}
+.report-btn.rb-broke{border-color:var(--purple);color:var(--purple);background:color-mix(in srgb,var(--purple) 10%,transparent)}
+.report-btn.rb-empty{border-color:var(--amber); color:var(--amber); background:color-mix(in srgb,var(--amber)  10%,transparent)}
+
+.qr-toggle{display:flex;align-items:center;gap:8px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer;color:var(--green);font-size:14px;font-weight:600;background:none;border-top:none;border-left:none;border-right:none;width:100%;font-family:var(--font-mono)}
+.qr-box{display:none;flex-direction:column;align-items:center;gap:12px;padding:20px 0;border-bottom:1px solid var(--border)}
+.qr-box.open{display:flex}
+.qr-hint{font-size:11px;color:var(--muted);text-align:center;line-height:1.5}
+.qr-actions{display:flex;gap:10px;width:100%}
+
+.log-entry{padding:12px 0;border-bottom:1px solid var(--border)}
+.log-entry:last-child{border-bottom:none}
+.log-action{font-size:13px;font-weight:600;margin-bottom:3px}
+.log-meta{font-size:11px;color:var(--muted)}
+.log-detail{font-size:12px;color:var(--text);margin-top:3px;font-style:italic}
+
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;border:none;font-family:var(--font-mono);letter-spacing:.5px;min-width:100px;transition:opacity .15s}
+.btn:active{opacity:.75}
+.btn-green {background:var(--green); color:var(--dark)}
+.btn-red   {background:color-mix(in srgb,var(--red)    15%,transparent);border:1px solid var(--red);   color:var(--red)}
+.btn-amber {background:color-mix(in srgb,var(--amber)  15%,transparent);border:1px solid var(--amber); color:var(--amber)}
+.btn-purple{background:color-mix(in srgb,var(--purple) 15%,transparent);border:1px solid var(--purple);color:var(--purple)}
+.btn-blue  {background:var(--blue); color:var(--dark)}
+.btn-ghost {background:var(--panel);color:var(--text)}
+.btn-full  {width:100%;flex:none;margin-top:8px}
+.action-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+
+/* ── Form ── */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:#9999BB;font-weight:700;letter-spacing:1px;margin-bottom:6px}
+.field input,.field textarea{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:15px;font-family:var(--font-mono);outline:none;transition:border-color .15s}
+.field input:focus,.field textarea:focus{border-color:var(--green)}
+.field input.err{border-color:var(--red)}
+.field .hint{font-size:11px;color:var(--muted);margin-top:4px}
+.field .err-msg{font-size:11px;color:var(--red);margin-top:4px;display:none}
+.field textarea{min-height:70px;resize:none}
+
+/* ── Location Picker ── */
+.loc-picker{background:var(--panel);border-radius:14px;padding:14px;margin-bottom:16px}
+.loc-picker-hdr{font-size:11px;color:#9999BB;font-weight:700;letter-spacing:1px;margin-bottom:10px}
+.loc-breadcrumb{font-size:12px;color:var(--blue);margin-bottom:10px;min-height:18px;line-height:1.5}
+.loc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.loc-grid.col2{grid-template-columns:repeat(2,1fr)}
+.loc-grid.col4{grid-template-columns:repeat(4,1fr)}
+.loc-grid.col5{grid-template-columns:repeat(5,1fr)}
+.loc-btn{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 6px;font-size:12px;font-weight:700;font-family:var(--font-mono);color:var(--text);cursor:pointer;text-align:center;transition:all .15s;line-height:1.3}
+.loc-btn:active,.loc-btn.sel{background:var(--blue);border-color:var(--blue);color:var(--dark)}
+.loc-back{background:none;border:none;color:var(--muted);font-size:12px;font-family:var(--font-mono);cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:4px;margin-top:4px}
+.loc-result{background:var(--card);border:1px solid var(--blue);border-radius:10px;padding:12px 14px;margin-top:8px;font-size:13px;color:var(--blue);font-weight:700;line-height:1.5}
+.loc-err{font-size:11px;color:var(--red);margin-top:6px;display:none}
+.loc-err.show{display:block}
+
+/* Photo upload */
+.photo-upload{position:relative;width:100%;height:150px;background:var(--panel);border:2px dashed var(--border);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;overflow:hidden;transition:border-color .15s}
+.photo-upload:active{border-color:var(--green)}
+.photo-upload img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.photo-upload input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-upload .ph-label{color:var(--muted);font-size:13px;font-weight:600;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:1}
+.photo-remove{position:absolute;top:8px;right:8px;background:#000a;border:none;border-radius:8px;padding:6px 10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;z-index:2;font-family:var(--font-mono)}
+
+/* Scanner */
+#scanner-wrap{position:relative;margin:0 16px;border-radius:16px;overflow:hidden;background:#000;height:240px;flex-shrink:0}
+#scanner-video{width:100%;height:100%;object-fit:cover}
+.viewfinder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.vf-box{width:180px;height:180px;position:relative}
+.vf-corner{position:absolute;width:22px;height:22px;border-color:var(--green);border-style:solid}
+.vf-corner.tl{top:0;left:0;border-width:3px 0 0 3px}
+.vf-corner.tr{top:0;right:0;border-width:3px 3px 0 0}
+.vf-corner.bl{bottom:0;left:0;border-width:0 0 3px 3px}
+.vf-corner.br{bottom:0;right:0;border-width:0 3px 3px 0}
+.scan-hint-txt{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:12px;color:#ffffffAA}
+.manual-row{display:flex;gap:10px;margin:12px 16px 0}
+.manual-row input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px;font-family:var(--font-mono);outline:none}
+.manual-row button{background:var(--green);border:none;border-radius:10px;padding:12px 16px;cursor:pointer}
+.not-found{display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--red) 15%,transparent);border:1px solid var(--red);border-radius:10px;padding:12px;margin:12px 16px 0}
+.not-found span{flex:1;color:var(--red);font-size:13px}
+.perm-box{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px;text-align:center}
+.perm-box h2{font-family:var(--font-head);font-size:22px}
+.perm-box p{color:var(--muted);font-size:14px;line-height:1.6}
+
+/* Missing banner */
+.missing-banner{background:color-mix(in srgb,var(--red) 10%,transparent);border:1px solid color-mix(in srgb,var(--red) 30%,transparent);border-radius:14px;padding:14px 16px;margin:0 16px 12px;display:none}
+.missing-banner.show{display:block}
+.missing-banner h3{color:var(--red);font-family:var(--font-head);font-size:14px;margin-bottom:8px}
+.missing-item-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid color-mix(in srgb,var(--red) 20%,transparent)}
+.missing-item-row:last-child{border-bottom:none;padding-bottom:0}
+.mi-name{font-size:13px;font-weight:600}
+.mi-who{font-size:11px;color:var(--amber)}
+
+/* Missing screen */
+.out-row{display:flex;align-items:flex-start;gap:12px;padding:14px;border-bottom:1px solid var(--border);cursor:pointer}
+.out-row:last-child{border-bottom:none}
+.out-row:active{opacity:.7}
+.out-photo{width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--panel);display:flex;align-items:center;justify-content:center}
+.out-name{font-family:var(--font-head);font-size:14px;font-weight:700}
+.out-who{font-size:12px;color:var(--amber);margin-top:2px}
+.out-purpose{font-size:12px;color:var(--muted);margin-top:2px;font-style:italic}
+.out-when{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Location QR builder */
+.loc-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .15s}
+.loc-card:active,.loc-card.selected{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 10%,transparent)}
+.loc-card .lc-icon{font-size:24px;flex-shrink:0}
+.loc-card .lc-name{font-family:var(--font-head);font-size:15px;font-weight:700}
+.loc-card .lc-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.loc-card .lc-check{margin-left:auto;color:var(--blue);display:none}
+.loc-card.selected .lc-check{display:block}
+.num-picker{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.num-btn{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 4px;font-size:14px;font-weight:800;font-family:var(--font-head);color:var(--text);cursor:pointer;text-align:center;transition:all .15s}
+.num-btn:active,.num-btn.selected{background:var(--blue);border-color:var(--blue);color:var(--dark)}
+.custom-input-row{display:flex;gap:10px;margin-bottom:16px}
+.custom-input-row input{flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px;font-family:var(--font-mono);outline:none;transition:border-color .15s}
+.custom-input-row input:focus{border-color:var(--blue)}
+.custom-input-row input::placeholder{color:var(--muted)}
+.custom-input-row button{background:var(--blue);border:none;border-radius:10px;padding:12px 16px;color:var(--dark);font-weight:800;font-family:var(--font-mono);cursor:pointer;font-size:13px}
+.loc-code-preview{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;text-align:center}
+.loc-code-big{font-family:var(--font-head);font-size:28px;font-weight:900;color:var(--blue);letter-spacing:3px}
+.loc-code-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.steps-row{display:flex;align-items:center;gap:6px;margin-bottom:20px}
+.step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;border:2px solid var(--border);color:var(--muted);background:var(--panel);transition:all .2s}
+.step-dot.active{border-color:var(--blue);color:var(--blue);background:color-mix(in srgb,var(--blue) 15%,transparent)}
+.step-dot.done{border-color:var(--green);color:var(--dark);background:var(--green)}
+.step-line{flex:1;height:2px;background:var(--border);border-radius:2px;transition:background .2s}
+.step-line.done{background:var(--green)}
+.step-label{font-size:10px;color:var(--muted);letter-spacing:.8px;font-weight:700;margin-bottom:6px}
+.saved-loc-row{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:12px}
+.saved-loc-row:last-child{border-bottom:none}
+.saved-loc-code{font-family:var(--font-head);font-size:16px;font-weight:900;color:var(--blue);min-width:80px}
+.saved-loc-name{flex:1;font-size:12px;color:var(--muted)}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:7px 10px;cursor:pointer;color:var(--muted);font-size:12px;font-family:var(--font-mono);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.icon-btn:active{opacity:.7}
+.icon-btn.blue{border-color:var(--blue);color:var(--blue)}
+.icon-btn.red {border-color:var(--red); color:var(--red)}
+.section-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.section-title{font-size:11px;font-weight:800;letter-spacing:1.5px;margin-bottom:10px;margin-top:24px}
+
+#install-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:300;background:var(--green);color:var(--dark);padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));flex-direction:row;align-items:center;gap:10px;font-size:13px;font-weight:700}
+#install-banner button{margin-left:auto;background:var(--dark);color:var(--green);border:none;border-radius:8px;padding:6px 14px;font-weight:800;font-family:var(--font-mono);cursor:pointer}
+#install-banner .dismiss{background:none;color:var(--dark);opacity:.6;padding:6px;margin-left:0}
+
+@media print{
+  body *{display:none!important}
+  #print-area{display:block!important;padding:20px;font-family:sans-serif}
+  .print-qr-item{display:inline-block;margin:12px;text-align:center;break-inside:avoid}
+  .print-qr-item p{font-size:12px;margin-top:6px;font-weight:700}
+  .print-qr-item span{font-size:10px;color:#666;display:block}
+}
+#print-area{display:none}
+</style>
+</head>
+<body>
+<div id="install-banner">
+  <span>🏠 Add MyStuff to your home screen!</span>
+  <button id="install-btn">Install</button>
+  <button class="dismiss" id="dismiss-banner">✕</button>
+</div>
+<div id="print-area"></div>
+
+<div id="app">
+  <!-- STUFF -->
+  <div class="screen active" id="screen-stuff">
+    <div class="hdr">
+      <h1>MY STUFF</h1>
+      <div id="out-badge" class="badge badge-red" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span id="out-count">0</span> OUT
+      </div>
+    </div>
+    <div id="missing-banner" class="missing-banner"></div>
+    <div class="search-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="search-inp" placeholder="Search items…">
+    </div>
+    <div class="pills" id="filter-pills"></div>
+    <div class="scroll" id="item-list"></div>
+  </div>
+
+  <!-- SCAN -->
+  <div class="screen" id="screen-scan">
+    <div class="hdr"><h1>SCAN</h1></div>
+    <div id="cam-perm-box" class="perm-box" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="width:52px;height:52px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <h2>Camera Needed</h2>
+      <p>Allow camera access to scan item and location QR codes.</p>
+      <button class="btn btn-green" id="req-cam-btn" style="max-width:200px">Allow Camera</button>
+    </div>
+    <div id="scanner-wrap">
+      <video id="scanner-video" autoplay playsinline muted></video>
+      <div class="viewfinder"><div class="vf-box"><div class="vf-corner tl"></div><div class="vf-corner tr"></div><div class="vf-corner bl"></div><div class="vf-corner br"></div></div></div>
+      <div class="scan-hint-txt">Scan an item or location QR code</div>
+    </div>
+    <div class="manual-row">
+      <input type="text" id="manual-inp" placeholder="Or type item name…">
+      <button id="manual-btn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--dark)" stroke-width="2.5" style="width:18px;height:18px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+    </div>
+    <div id="not-found-bar" class="not-found" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="not-found-text"></span>
+      <button style="background:none;border:none;color:var(--muted);cursor:pointer" id="nf-close">✕</button>
+    </div>
+    <div class="scroll" style="padding-top:12px"><p style="color:var(--muted);font-size:12px;text-align:center;line-height:1.6">Scan item QR codes to check in/out.<br>Scan location QR codes to see what belongs there.</p></div>
+  </div>
+
+  <!-- ADD -->
+  <div class="screen" id="screen-add">
+    <div class="hdr" style="padding-bottom:4px">
+      <button id="add-back" style="background:none;border:none;color:var(--text);cursor:pointer;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+      <h1 id="form-title">ADD ITEM</h1>
+      <div style="width:34px"></div>
+    </div>
+    <div class="scroll">
+      <div class="field">
+        <label>PHOTO</label>
+        <div class="photo-upload" id="photo-upload-box">
+          <img id="photo-preview" style="display:none" alt="">
+          <input type="file" accept="image/*" id="photo-input" capture="environment">
+          <div class="ph-label" id="ph-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:28px;height:28px;opacity:.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Tap to add a photo
+          </div>
+          <button class="photo-remove" id="photo-remove" style="display:none">✕ Remove</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>ITEM NAME *</label>
+        <input type="text" id="f-name" placeholder="e.g. Black PlayStation Controller">
+        <div class="err-msg" id="f-name-err">Name is required</div>
+      </div>
+
+      <!-- Hierarchical location picker -->
+      <div class="loc-picker" id="loc-picker">
+        <div class="loc-picker-hdr">WHERE DOES IT LIVE? *</div>
+        <div class="loc-breadcrumb" id="loc-breadcrumb"></div>
+        <div id="loc-picker-body"></div>
+        <div class="loc-err" id="loc-err">Please select a location</div>
+      </div>
+
+      <div class="field">
+        <label>DESCRIPTION</label>
+        <input type="text" id="f-desc" placeholder="Color, brand, model, size…">
+      </div>
+      <div class="field">
+        <label>SERIAL / ID NUMBER</label>
+        <input type="text" id="f-serial" placeholder="For electronics, tools, etc.">
+        <div class="hint">Useful as proof of ownership</div>
+      </div>
+      <div class="field">
+        <label>NOTES</label>
+        <textarea id="f-notes" placeholder="Any other details…"></textarea>
+      </div>
+      <button class="btn btn-green btn-full" id="save-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="save-btn-label">Add Item</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- PLACES -->
+  <div class="screen" id="screen-locations">
+    <div class="hdr"><h1>PLACES</h1></div>
+    <div class="scroll" id="loc-content"></div>
+  </div>
+
+  <!-- MISSING -->
+  <div class="screen" id="screen-missing">
+    <div class="hdr"><h1>MISSING</h1></div>
+    <div class="scroll" id="missing-content"></div>
+  </div>
+
+  <nav>
+    <button class="active" data-screen="stuff">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>STUFF
+    </button>
+    <button data-screen="scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>SCAN
+    </button>
+    <button data-screen="add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>ADD
+    </button>
+    <button data-screen="locations">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>PLACES
+    </button>
+    <button data-screen="missing">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>MISSING
+    </button>
+  </nav>
+</div>
+
+<!-- ITEM DETAIL MODAL -->
+<div class="overlay" id="detail-overlay">
+  <div class="sheet">
+    <div class="sheet-hdr"><h2 id="d-name"></h2><button class="close-btn" id="detail-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div id="d-photo-wrap" style="margin-bottom:14px;display:none"><img id="d-photo" style="width:100%;height:180px;object-fit:cover;border-radius:12px" alt=""></div>
+    <div id="d-status-row" style="margin-bottom:16px"></div>
+    <div id="d-rows"></div>
+    <div class="sec-label">REPORT AN ISSUE</div>
+    <div class="report-row">
+      <button class="report-btn rb-broke" id="d-broke"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>OOPS, BROKE IT</button>
+      <button class="report-btn rb-empty" id="d-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>USED THE LAST</button>
+    </div>
+    <div class="checkout-box" id="checkout-box">
+      <h3 id="checkout-title">LEND THIS ITEM</h3>
+      <div class="co-field" id="co-who-field">
+        <label>WHO'S TAKING IT? <span class="req">*</span></label>
+        <input type="text" class="co-input" id="borrower-inp" placeholder="Enter their name">
+        <div class="co-err" id="borrower-err">A name is required</div>
+      </div>
+      <div class="co-field" id="co-purpose-field"><label>WHAT FOR?</label><input type="text" class="co-input" id="purpose-inp" placeholder="e.g. fixing the sink"></div>
+      <div class="co-field" id="co-where-field"><label>TAKING IT WHERE?</label><input type="text" class="co-input" id="where-inp" placeholder="e.g. bathroom, outside"></div>
+      <button class="btn btn-full" id="checkout-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span id="checkout-btn-label">Mark as Out</span></button>
+    </div>
+    <button class="qr-toggle" id="qr-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M17 14h.01M14 17h.01M17 17h.01"/></svg><span id="qr-toggle-label">Show QR Code</span></button>
+    <div class="qr-box" id="qr-box">
+      <div id="qr-canvas"></div>
+      <div class="qr-hint">Stick this on the item — scan to look up instantly</div>
+      <div class="qr-actions">
+        <button class="btn btn-ghost" id="qr-download" style="font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
+        <button class="btn btn-ghost" id="qr-print" style="font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>
+      </div>
+    </div>
+    <div id="activity-section"></div>
+    <div class="action-row" style="margin-top:20px">
+      <button class="btn btn-ghost" id="d-edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>Edit</button>
+      <button class="btn btn-red" id="d-delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCAN RESULT MODAL -->
+<div class="overlay" id="scan-overlay">
+  <div class="sheet">
+    <div class="sheet-hdr"><h2 id="sr-name"></h2><button class="close-btn" id="scan-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div id="sr-photo-wrap" style="margin-bottom:12px;display:none"><img id="sr-photo" style="width:100%;height:140px;object-fit:cover;border-radius:12px" alt=""></div>
+    <div id="sr-status" style="margin-bottom:12px"></div>
+    <div id="sr-rows"></div>
+    <div id="sr-actions" style="margin-top:16px"></div>
+    <button class="btn btn-ghost btn-full" id="scan-again-btn" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>Scan Another</button>
+  </div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="overlay" id="report-overlay">
+  <div class="sheet">
+    <div class="sheet-hdr"><h2 id="report-title"></h2><button class="close-btn" id="report-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <p id="report-sub" style="color:var(--muted);font-size:14px;margin-bottom:16px;line-height:1.6"></p>
+    <div class="field"><label id="report-field-label">DETAILS</label><textarea id="report-details" placeholder="Optional…"></textarea></div>
+    <button class="btn btn-full" id="report-confirm">Confirm</button>
+  </div>
+</div>
+
+<!-- LOCATION QR MODAL -->
+<div class="overlay" id="loc-qr-overlay">
+  <div class="sheet">
+    <div class="sheet-hdr"><h2 id="lq-title"></h2><button class="close-btn" id="lq-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div id="lq-code-display" style="text-align:center;margin-bottom:16px"></div>
+    <div id="lq-canvas" style="display:flex;justify-content:center;margin-bottom:12px"></div>
+    <div class="qr-hint" style="margin-bottom:16px">Post this QR in the location — scan it to see what belongs there.</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" id="lq-download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
+      <button class="btn btn-ghost" id="lq-print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOCATION SCAN RESULT MODAL -->
+<div class="overlay" id="loc-scan-overlay">
+  <div class="sheet">
+    <div class="sheet-hdr">
+      <div><div style="font-size:10px;color:var(--blue);font-weight:700;letter-spacing:1px;margin-bottom:4px">📍 LOCATION</div><h2 id="ls-name"></h2></div>
+      <button class="close-btn" id="ls-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="ls-code" style="font-family:var(--font-head);font-size:20px;font-weight:900;color:var(--blue);margin-bottom:16px"></div>
+    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:10px">ITEMS THAT BELONG HERE</div>
+    <div id="ls-items"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  LOCATION HIERARCHY
+// ═══════════════════════════════════════════════
+// Each room defines its own structure.
+// A "path" is an array of strings building up to the final location label.
+// e.g. ["Carriage House","Garage","Red Double Top","Drawer 7"]
+
+const LOC_TREE = {
+  'Bedroom': {
+    type: 'shelf', // standard zone/slot
+  },
+  'Kitchen': { type: 'shelf' },
+  'Bathroom': { type: 'shelf' },
+  'Garage': { type: 'shelf' },
+  'Office': { type: 'shelf' },
+  'Outside': { type: 'shelf' },
+  'Lab': { type: 'shelf' },
+  'Snoopy Shed': { type: 'shelf' },
+  'Dressing Room': {
+    type: 'custom',
+    sections: [
+      {
+        label: 'Workstation Drawers',
+        items: ['L1','L2','L3','M1','M2','R1','R2'],
+        hasSubSlots: false
+      },
+      {
+        label: 'Closets',
+        items: ['H1','H2','D3','D4','D5','D6'],
+        hasSubSlots: false
+      },
+      {
+        label: 'Drawers',
+        items: ['R1','R2','R3','M1','M2','H3','D7','D8','D9','L1','L2'],
+        hasSubSlots: false
+      }
+    ]
+  },
+  'Baby Room': {
+    type: 'custom',
+    sections: [
+      {
+        label: 'Left Column',
+        items: ['L1','L2','L3'],
+        subSlots: { 'L1': ['A','B','C','D'] }
+      },
+      {
+        label: 'Middle Column',
+        items: ['M1','M2','M3'],
+        subSlots: { 'M1': ['A','B','C'] }
+      },
+      {
+        label: 'Right Column',
+        items: ['R1','R2','R3'],
+        subSlots: { 'R1': ['A','B','C','D'] }
+      }
+    ]
+  },
+  'Carriage House': {
+    type: 'subroom',
+    subrooms: {
+      'Garage': {
+        type: 'garage',
+        options: ['Toolbox','Shelves'],
+        toolboxes: {
+          'Red Single (5 drawers)': { drawers: 5 },
+          'Red Double — Top (12 drawers)': { drawers: 12 },
+          'Red Double — Bottom (5 drawers)': { drawers: 5 },
+          'Blue Toolbox — Top (6 drawers)': { drawers: 6 },
+          'Blue Toolbox — Bottom (6 drawers)': { drawers: 6 },
+        }
+      },
+      'Room': { type: 'shelf' }
+    }
+  }
+};
+
+const ROOM_ICONS = {
+  'Bedroom':'🛏️','Kitchen':'🍳','Bathroom':'🚿','Garage':'🔧',
+  'Office':'💼','Outside':'🌿','Lab':'🔬','Snoopy Shed':'🐾',
+  'Dressing Room':'👗','Baby Room':'🍼','Carriage House':'🏠'
+};
+
+const ROOMS = Object.keys(LOC_TREE);
+
+// Standard shelf zones A-J, slots 1-20
+const SHELF_ZONES = 'ABCDEFGHIJ'.split('');
+const SHELF_SLOTS = Array.from({length:20},(_,i)=>i+1);
+
+// ═══════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════
+const ITEMS_KEY='mystuff_v3', LOCS_KEY='mystuff_locations';
+function load(){try{return JSON.parse(localStorage.getItem(ITEMS_KEY)||'[]')}catch{return[]}}
+function save(items){localStorage.setItem(ITEMS_KEY,JSON.stringify(items))}
+function loadLocs(){try{return JSON.parse(localStorage.getItem(LOCS_KEY)||'[]')}catch{return[]}}
+function saveLocs(l){localStorage.setItem(LOCS_KEY,JSON.stringify(l))}
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function qrItemVal(item){return JSON.stringify({type:'item',id:item.id,name:item.name})}
+function qrLocVal(loc){return JSON.stringify({type:'location',code:loc.code,name:loc.fullName})}
+function fmtDate(iso){return new Date(iso).toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'})}
+function statusLabel(item){
+  if(item.status==='broken')return{label:'BROKEN',cls:'chip-broken',badgeCls:'purple'};
+  if(item.status==='empty') return{label:'EMPTY', cls:'chip-empty', badgeCls:'amber'};
+  if(item.status==='out')   return{label:'OUT',   cls:'chip-out',   badgeCls:'red'};
+  return{label:'HOME',cls:'chip-home',badgeCls:'green'};
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+// ═══════════════════════════════════════════════
+//  LOCATION PICKER STATE
+// ═══════════════════════════════════════════════
+let locState = {
+  room: null,      // room name
+  subroom: null,   // for Carriage House
+  section: null,   // for custom rooms (section label)
+  slot: null,      // drawer/zone code
+  subSlot: null,   // sub-slot letter
+  tbName: null,    // toolbox name
+  tbDrawer: null,  // toolbox drawer number
+  zone: null,      // shelf zone (standard)
+  shelfSlot: null, // shelf slot (standard)
+  locType: null,   // 'toolbox' or 'shelves' for garage
+  done: false,
+};
+
+function locReset(){
+  locState={room:null,subroom:null,section:null,slot:null,subSlot:null,tbName:null,tbDrawer:null,zone:null,shelfSlot:null,locType:null,done:false};
+  renderLocPicker();
+}
+
+function locFullPath(){
+  // Build human-readable location string
+  const parts=[];
+  if(locState.room) parts.push(locState.room);
+  if(locState.subroom) parts.push(locState.subroom);
+  if(locState.section) parts.push(locState.section);
+  if(locState.locType==='toolbox'){
+    if(locState.tbName) parts.push(locState.tbName);
+    if(locState.tbDrawer) parts.push('Drawer '+locState.tbDrawer);
+  } else if(locState.locType==='shelves'||(!locState.locType&&locState.zone)){
+    if(locState.zone) parts.push('Zone '+locState.zone);
+    if(locState.shelfSlot) parts.push('Slot '+locState.shelfSlot);
+  } else {
+    if(locState.slot) parts.push(locState.slot);
+    if(locState.subSlot) parts.push(locState.subSlot);
+  }
+  return parts.join(' → ');
+}
+
+function renderLocPicker(){
+  const body=document.getElementById('loc-picker-body');
+  const bc=document.getElementById('loc-breadcrumb');
+  const path=locFullPath();
+  bc.textContent=path||'';
+
+  if(locState.done){
+    body.innerHTML=`<div class="loc-result">📍 ${esc(path)}</div>
+      <button class="loc-back" id="loc-change">✎ Change location</button>`;
+    document.getElementById('loc-change').addEventListener('click',locReset);
+    return;
+  }
+
+  const room=locState.room;
+
+  // Step 1 — pick room
+  if(!room){
+    body.innerHTML=`<div class="loc-grid col2">${ROOMS.map(r=>`
+      <button class="loc-btn" data-room="${esc(r)}">${ROOM_ICONS[r]||'📦'}<br>${esc(r)}</button>`).join('')}</div>`;
+    body.querySelectorAll('[data-room]').forEach(b=>b.addEventListener('click',()=>{
+      locState.room=b.dataset.room; renderLocPicker();
+    }));
+    return;
+  }
+
+  const def=LOC_TREE[room];
+
+  // Standard shelf room
+  if(def.type==='shelf'||(def.type==='garage'&&locState.locType==='shelves')||
+     (def.type==='subroom'&&locState.subroom&&LOC_TREE[room].subrooms[locState.subroom]?.type==='shelf')){
+    renderShelfPicker(body);
+    return;
+  }
+
+  // Sub-room (Carriage House)
+  if(def.type==='subroom'&&!locState.subroom){
+    const subs=Object.keys(def.subrooms);
+    body.innerHTML=`<div class="step-label">PICK AREA</div>
+      <div class="loc-grid col2">${subs.map(s=>`<button class="loc-btn" data-sub="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+      <button class="loc-back" id="lb-room">← Back</button>`;
+    body.querySelectorAll('[data-sub]').forEach(b=>b.addEventListener('click',()=>{
+      locState.subroom=b.dataset.sub;renderLocPicker();
+    }));
+    document.getElementById('lb-room').addEventListener('click',()=>{locState.room=null;renderLocPicker()});
+    return;
+  }
+
+  // Garage sub-room
+  const subroomDef=def.type==='subroom'?def.subrooms[locState.subroom]:null;
+  if(subroomDef?.type==='garage'&&!locState.locType){
+    body.innerHTML=`<div class="step-label">TOOLBOX OR SHELVES?</div>
+      <div class="loc-grid col2">
+        <button class="loc-btn" data-lt="toolbox">🧰<br>Toolbox</button>
+        <button class="loc-btn" data-lt="shelves">📦<br>Shelves</button>
+      </div>
+      <button class="loc-back" id="lb-sub">← Back</button>`;
+    body.querySelectorAll('[data-lt]').forEach(b=>b.addEventListener('click',()=>{
+      locState.locType=b.dataset.lt;renderLocPicker();
+    }));
+    document.getElementById('lb-sub').addEventListener('click',()=>{locState.subroom=null;renderLocPicker()});
+    return;
+  }
+
+  // Toolbox picker
+  if(locState.locType==='toolbox'){
+    const tbDef=subroomDef?.toolboxes||LOC_TREE[room]?.toolboxes||{};
+    if(!locState.tbName){
+      body.innerHTML=`<div class="step-label">PICK TOOLBOX</div>
+        ${Object.keys(tbDef).map(t=>`<button class="loc-btn" style="width:100%;text-align:left;padding:12px 14px;margin-bottom:8px" data-tb="${esc(t)}">${esc(t)}</button>`).join('')}
+        <button class="loc-back" id="lb-lt">← Back</button>`;
+      body.querySelectorAll('[data-tb]').forEach(b=>b.addEventListener('click',()=>{
+        locState.tbName=b.dataset.tb;renderLocPicker();
+      }));
+      document.getElementById('lb-lt').addEventListener('click',()=>{locState.locType=null;renderLocPicker()});
+      return;
+    }
+    // Pick drawer number
+    const drawerCount=tbDef[locState.tbName]?.drawers||5;
+    const drawers=Array.from({length:drawerCount},(_,i)=>i+1);
+    body.innerHTML=`<div class="step-label">PICK DRAWER (1–${drawerCount})</div>
+      <div class="num-picker" style="grid-template-columns:repeat(${Math.min(drawerCount,5)},1fr)">
+        ${drawers.map(n=>`<button class="num-btn ${locState.tbDrawer===n?'selected':''}" data-n="${n}">${n}</button>`).join('')}
+      </div>
+      ${locState.tbDrawer?`<button class="btn btn-blue btn-full" id="loc-done-tb">✓ Use This Location</button>`:''}
+      <button class="loc-back" id="lb-tb">← Back</button>`;
+    body.querySelectorAll('.num-btn').forEach(b=>b.addEventListener('click',()=>{
+      locState.tbDrawer=parseInt(b.dataset.n);renderLocPicker();
+    }));
+    const doneBtn=document.getElementById('loc-done-tb');
+    if(doneBtn) doneBtn.addEventListener('click',()=>{locState.done=true;renderLocPicker()});
+    document.getElementById('lb-tb').addEventListener('click',()=>{locState.tbName=null;locState.tbDrawer=null;renderLocPicker()});
+    return;
+  }
+
+  // Custom room (Dressing Room / Baby Room)
+  if(def.type==='custom'){
+    if(!locState.section){
+      body.innerHTML=`<div class="step-label">PICK SECTION</div>
+        <div class="loc-grid col2">${def.sections.map(sec=>`
+          <button class="loc-btn" data-sec="${esc(sec.label)}">${esc(sec.label)}</button>`).join('')}
+        </div>
+        <button class="loc-back" id="lb-room2">← Back</button>`;
+      body.querySelectorAll('[data-sec]').forEach(b=>b.addEventListener('click',()=>{
+        locState.section=b.dataset.sec;renderLocPicker();
+      }));
+      document.getElementById('lb-room2').addEventListener('click',()=>{locState.room=null;renderLocPicker()});
+      return;
+    }
+    const sec=def.sections.find(s=>s.label===locState.section);
+    if(!locState.slot){
+      const cols=sec.items.length<=4?sec.items.length:sec.items.length<=6?3:4;
+      body.innerHTML=`<div class="step-label">PICK SLOT — ${esc(locState.section)}</div>
+        <div class="loc-grid" style="grid-template-columns:repeat(${cols},1fr)">
+          ${sec.items.map(it=>`<button class="loc-btn" data-slot="${esc(it)}">${esc(it)}</button>`).join('')}
+        </div>
+        <button class="loc-back" id="lb-sec">← Back</button>`;
+      body.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click',()=>{
+        locState.slot=b.dataset.slot;
+        const subs=sec.subSlots?.[b.dataset.slot];
+        if(!subs){locState.done=true;}
+        renderLocPicker();
+      }));
+      document.getElementById('lb-sec').addEventListener('click',()=>{locState.section=null;renderLocPicker()});
+      return;
+    }
+    // Sub-slots (Baby Room L1, M1, R1)
+    const subs=sec.subSlots?.[locState.slot];
+    if(subs&&!locState.subSlot){
+      body.innerHTML=`<div class="step-label">PICK POSITION — ${esc(locState.slot)}</div>
+        <div class="loc-grid col${subs.length}">
+          ${subs.map(s=>`<button class="loc-btn" data-ss="${esc(s)}">${esc(s)}</button>`).join('')}
+        </div>
+        <button class="loc-back" id="lb-slot">← Back</button>`;
+      body.querySelectorAll('[data-ss]').forEach(b=>b.addEventListener('click',()=>{
+        locState.subSlot=b.dataset.ss;locState.done=true;renderLocPicker();
+      }));
+      document.getElementById('lb-slot').addEventListener('click',()=>{locState.slot=null;renderLocPicker()});
+      return;
+    }
+    locState.done=true;renderLocPicker();
+    return;
+  }
+}
+
+function renderShelfPicker(body){
+  const isGarageShelf=locState.locType==='shelves';
+  const isSubroom=LOC_TREE[locState.room]?.type==='subroom';
+  if(!locState.zone){
+    body.innerHTML=`<div class="step-label">ZONE / SHELF</div>
+      <div class="num-picker">${SHELF_ZONES.map(z=>`<button class="num-btn ${locState.zone===z?'selected':''}" data-z="${z}">${z}</button>`).join('')}</div>
+      <div class="custom-input-row"><input type="text" id="zone-custom" placeholder="Custom label" maxlength="10"><button id="zone-custom-btn">Use</button></div>
+      <button class="loc-back" id="lb-shelf-back">← Back</button>`;
+    body.querySelectorAll('[data-z]').forEach(b=>b.addEventListener('click',()=>{locState.zone=b.dataset.z;renderLocPicker()}));
+    document.getElementById('zone-custom-btn').addEventListener('click',()=>{
+      const v=document.getElementById('zone-custom').value.trim().toUpperCase().slice(0,10);
+      if(!v)return;locState.zone=v;renderLocPicker();
+    });
+    document.getElementById('lb-shelf-back').addEventListener('click',()=>{
+      if(isGarageShelf){locState.locType=null;}
+      else if(isSubroom){locState.subroom=null;}
+      else{locState.room=null;}
+      renderLocPicker();
+    });
+    return;
+  }
+  if(!locState.shelfSlot){
+    body.innerHTML=`<div class="step-label">SLOT NUMBER — Zone ${esc(locState.zone)}</div>
+      <div class="num-picker">${SHELF_SLOTS.map(n=>`<button class="num-btn ${locState.shelfSlot===n?'selected':''}" data-n="${n}">${n}</button>`).join('')}</div>
+      <div class="custom-input-row"><input type="number" id="slot-custom" placeholder="Custom #" min="1"><button id="slot-custom-btn">Use</button></div>
+      ${locState.shelfSlot?`<button class="btn btn-blue btn-full" id="loc-done-shelf">✓ Use This Location</button>`:''}
+      <button class="loc-back" id="lb-zone-back">← Back</button>`;
+    body.querySelectorAll('.num-btn').forEach(b=>b.addEventListener('click',()=>{locState.shelfSlot=parseInt(b.dataset.n);renderLocPicker()}));
+    document.getElementById('slot-custom-btn').addEventListener('click',()=>{
+      const v=parseInt(document.getElementById('slot-custom').value);
+      if(!v||v<1)return;locState.shelfSlot=v;renderLocPicker();
+    });
+    const doneBtn=document.getElementById('loc-done-shelf');
+    if(doneBtn) doneBtn.addEventListener('click',()=>{locState.done=true;renderLocPicker()});
+    document.getElementById('lb-zone-back').addEventListener('click',()=>{locState.zone=null;renderLocPicker()});
+    return;
+  }
+  locState.done=true;renderLocPicker();
+}
+
+// ═══════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════
+let editingId=null;
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelector(`[data-screen="${name}"]`).classList.add('active');
+  if(name==='stuff')    renderStuff();
+  if(name==='scan')     initScanner();
+  if(name==='missing')  renderMissing();
+  if(name==='locations')renderLocations();
+  if(name==='add'&&!editingId)resetForm();
+  if(name!=='scan')     stopScanner();
+}
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));
+
+// ═══════════════════════════════════════════════
+//  STUFF LIST
+// ═══════════════════════════════════════════════
+let filterMode='All',searchQ='';
+function renderStuff(){
+  const items=load();
+  const outItems=items.filter(i=>i.status==='out');
+  document.getElementById('out-count').textContent=outItems.length;
+  document.getElementById('out-badge').style.display=outItems.length?'flex':'none';
+  const banner=document.getElementById('missing-banner');
+  if(outItems.length){
+    banner.classList.add('show');
+    banner.innerHTML=`<h3>⚠ ${outItems.length} item${outItems.length>1?'s':''} not home</h3>`+
+      outItems.slice(0,3).map(i=>`<div class="missing-item-row"><span class="mi-name">${esc(i.name)}</span><span class="mi-who">${i.borrower?'👤 '+esc(i.borrower):'unknown'}</span></div>`).join('')+
+      (outItems.length>3?`<div style="font-size:11px;color:var(--muted);margin-top:6px">+${outItems.length-3} more</div>`:'');
+  } else banner.classList.remove('show');
+
+  const rooms=[...new Set(items.map(i=>i.room))].sort();
+  const pillsEl=document.getElementById('filter-pills');
+  pillsEl.innerHTML=['All','Home','Out','Broken',...rooms].map(p=>{
+    let cls='pill';
+    if(p===filterMode)cls+=p==='Out'||p==='Broken'?' active-red':' active';
+    return`<button class="${cls}" data-f="${p}">${p}</button>`;
+  }).join('');
+  pillsEl.querySelectorAll('.pill').forEach(p=>p.addEventListener('click',()=>{filterMode=p.dataset.f;renderStuff()}));
+
+  let filtered=items.filter(i=>{
+    const mQ=!searchQ||i.name.toLowerCase().includes(searchQ)||(i.desc||'').toLowerCase().includes(searchQ)||(i.location||i.room||'').toLowerCase().includes(searchQ);
+    let mF=true;
+    if(filterMode==='Home')        mF=i.status==='home';
+    else if(filterMode==='Out')    mF=i.status==='out';
+    else if(filterMode==='Broken') mF=i.status==='broken'||i.status==='empty';
+    else if(filterMode!=='All')    mF=i.room===filterMode;
+    return mQ&&mF;
+  });
+
+  const list=document.getElementById('item-list');
+  if(!filtered.length){list.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:52px;height:52px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><p>${items.length?'No items match.':'No items yet.\nTap ADD to start tracking.'}</p></div>`;return;}
+  list.innerHTML=filtered.map(item=>{
+    const st=statusLabel(item);
+    const borderCls=item.status==='out'?'missing':item.status==='broken'||item.status==='empty'?'broken':'';
+    const locDisplay=item.location||item.room||'';
+    return`<div class="item-card ${borderCls}" data-id="${item.id}">
+      ${item.photo?`<img class="card-photo" src="${item.photo}" alt="">`:''}
+      <div class="card-body">
+        <div class="card-top">
+          <div style="flex:1;margin-right:8px">
+            <div class="item-name">${esc(item.name)}</div>
+            <div class="item-loc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(locDisplay)}</div>
+          </div>
+          <span class="status-chip ${st.cls}">${st.label}</span>
+        </div>
+        ${item.status==='out'&&item.borrower?`<div class="borrower-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${esc(item.borrower)}${item.purpose?' · '+esc(item.purpose):''}</div>`:''}
+        ${item.status==='broken'?`<div style="font-size:12px;color:var(--purple);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">⚠ Reported broken</div>`:''}
+        ${item.status==='empty'?`<div style="font-size:12px;color:var(--amber);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">📦 Used the last of it</div>`:''}
+      </div></div>`;
+  }).join('');
+  list.querySelectorAll('.item-card').forEach(c=>c.addEventListener('click',()=>openDetail(c.dataset.id)));
+}
+document.getElementById('search-inp').addEventListener('input',e=>{searchQ=e.target.value.toLowerCase();renderStuff()});
+
+// ═══════════════════════════════════════════════
+//  DETAIL MODAL
+// ═══════════════════════════════════════════════
+let detailId=null,qrOpen=false,qrInstance=null;
+function openDetail(id){
+  const items=load();const item=items.find(i=>i.id===id);if(!item)return;
+  detailId=id;qrOpen=false;
+  document.getElementById('d-name').textContent=item.name;
+  const pw=document.getElementById('d-photo-wrap');
+  if(item.photo){pw.style.display='block';document.getElementById('d-photo').src=item.photo}else pw.style.display='none';
+  const st=statusLabel(item);
+  document.getElementById('d-status-row').innerHTML=`<span class="badge badge-${st.badgeCls}">${item.status==='home'?'✓ AT HOME':item.status==='out'?'⬆ OUT OF HOME':item.status==='broken'?'⚠ BROKEN':'📦 NEEDS RESTOCKING'}</span>`;
+  document.getElementById('d-rows').innerHTML=[
+    ['LOCATION', item.location||item.room||'—'],
+    item.desc?['DESCRIPTION',item.desc]:null,
+    item.serial?['SERIAL / ID',item.serial]:null,
+    item.notes?['NOTES',item.notes]:null,
+    ['ADDED',fmtDate(item.addedAt)],
+    item.status==='out'&&item.borrower?['BORROWED BY',item.borrower]:null,
+    item.status==='out'&&item.purpose?['PURPOSE',item.purpose]:null,
+    item.status==='out'&&item.whereAt?['TAKEN TO',item.whereAt]:null,
+    item.status==='out'&&item.checkedOutAt?['SINCE',fmtDate(item.checkedOutAt)]:null,
+  ].filter(Boolean).map(([l,v])=>`<div class="detail-row"><span class="dl">${l}</span><span class="dv">${esc(String(v))}</span></div>`).join('');
+  document.getElementById('d-broke').onclick=()=>openReport('broke',item);
+  document.getElementById('d-empty').onclick=()=>openReport('empty',item);
+  const isOut=item.status==='out';const isBrokenOrEmpty=item.status==='broken'||item.status==='empty';
+  document.getElementById('checkout-title').textContent=isOut?'MARK AS RETURNED':'LEND THIS ITEM';
+  document.getElementById('checkout-btn-label').textContent=isOut?'Mark as Returned':'Mark as Out';
+  document.getElementById('checkout-btn').className=`btn btn-full ${isOut?'btn-green':'btn-amber'}`;
+  const showFields=!isOut&&!isBrokenOrEmpty;
+  ['co-who-field','co-purpose-field','co-where-field'].forEach(id=>document.getElementById(id).style.display=showFields?'block':'none');
+  ['borrower-inp','purpose-inp','where-inp'].forEach(id=>{document.getElementById(id).value='';document.getElementById(id).classList.remove('err')});
+  document.getElementById('borrower-err').classList.remove('show');
+  const log=(item.log||[]).slice().reverse().slice(0,10);
+  document.getElementById('activity-section').innerHTML=log.length?`<div class="sec-label">ACTIVITY</div><div class="section-card">${log.map(e=>`<div class="log-entry"><div class="log-action" style="color:${e.type==='out'?'var(--amber)':e.type==='returned'?'var(--green)':e.type==='broken'?'var(--purple)':e.type==='empty'?'var(--amber)':'var(--muted)'}">${esc(e.label)}</div>${e.detail?`<div class="log-detail">${esc(e.detail)}</div>`:''}<div class="log-meta">${fmtDate(e.at)}</div></div>`).join('')}</div>`:'';
+  document.getElementById('qr-toggle-label').textContent='Show QR Code';
+  document.getElementById('qr-box').classList.remove('open');
+  document.getElementById('qr-canvas').innerHTML='';qrInstance=null;
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+document.getElementById('checkout-btn').addEventListener('click',()=>{
+  const items=load();const idx=items.findIndex(i=>i.id===detailId);if(idx===-1)return;
+  const item=items[idx];const isOut=item.status==='out';const now=new Date().toISOString();
+  if(isOut){
+    items[idx]={...item,status:'home',borrower:null,purpose:null,whereAt:null,checkedOutAt:null,log:[...(item.log||[]),{type:'returned',label:'Returned home',at:now}]};
+    save(items);document.getElementById('detail-overlay').classList.remove('open');renderStuff();
+  } else {
+    const who=document.getElementById('borrower-inp').value.trim();
+    if(!who){document.getElementById('borrower-inp').classList.add('err');document.getElementById('borrower-err').classList.add('show');document.getElementById('borrower-inp').focus();return;}
+    const purpose=document.getElementById('purpose-inp').value.trim();
+    const where=document.getElementById('where-inp').value.trim();
+    items[idx]={...item,status:'out',borrower:who,purpose:purpose||null,whereAt:where||null,checkedOutAt:now,log:[...(item.log||[]),{type:'out',label:`Taken by ${who}`,detail:[purpose&&`For: ${purpose}`,where&&`Going to: ${where}`].filter(Boolean).join(' · ')||null,at:now}]};
+    save(items);document.getElementById('detail-overlay').classList.remove('open');renderStuff();
+  }
+});
+document.getElementById('borrower-inp').addEventListener('input',()=>{document.getElementById('borrower-inp').classList.remove('err');document.getElementById('borrower-err').classList.remove('show')});
+document.getElementById('detail-close').addEventListener('click',()=>document.getElementById('detail-overlay').classList.remove('open'));
+document.getElementById('detail-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('detail-overlay'))document.getElementById('detail-overlay').classList.remove('open')});
+
+document.getElementById('qr-toggle').addEventListener('click',()=>{
+  const item=load().find(i=>i.id===detailId);if(!item)return;
+  qrOpen=!qrOpen;document.getElementById('qr-toggle-label').textContent=qrOpen?'Hide QR Code':'Show QR Code';
+  document.getElementById('qr-box').classList.toggle('open',qrOpen);
+  if(qrOpen&&!qrInstance){document.getElementById('qr-canvas').innerHTML='';qrInstance=new QRCode(document.getElementById('qr-canvas'),{text:qrItemVal(item),width:200,height:200,colorDark:'#E8E8F0',colorLight:'#12121A'});}
+});
+document.getElementById('qr-download').addEventListener('click',()=>{
+  const item=load().find(i=>i.id===detailId);if(!item||!qrInstance)return;
+  setTimeout(()=>{const canvas=document.querySelector('#qr-canvas canvas');if(!canvas)return;
+    const out=document.createElement('canvas');out.width=canvas.width;out.height=canvas.height+60;
+    const ctx=out.getContext('2d');ctx.fillStyle='#12121A';ctx.fillRect(0,0,out.width,out.height);ctx.drawImage(canvas,0,0);
+    ctx.fillStyle='#E8E8F0';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText(item.name,out.width/2,canvas.height+20);
+    ctx.fillStyle='#6B6B8A';ctx.font='11px sans-serif';ctx.fillText(item.location||item.room||'',out.width/2,canvas.height+38);
+    const a=document.createElement('a');a.href=out.toDataURL('image/png');a.download=`qr-${item.name.replace(/\s+/g,'-').toLowerCase()}.png`;a.click();},100);
+});
+document.getElementById('qr-print').addEventListener('click',()=>{
+  const item=load().find(i=>i.id===detailId);if(!item||!qrInstance)return;
+  setTimeout(()=>{const canvas=document.querySelector('#qr-canvas canvas');if(!canvas)return;
+    document.getElementById('print-area').innerHTML=`<div class="print-qr-item"><img src="${canvas.toDataURL()}" style="width:200px"><p>${item.name}</p><span>${item.location||item.room||''}</span></div>`;window.print();},100);
+});
+document.getElementById('d-edit').addEventListener('click',()=>{document.getElementById('detail-overlay').classList.remove('open');openEdit(detailId)});
+document.getElementById('d-delete').addEventListener('click',()=>{
+  const item=load().find(i=>i.id===detailId);if(!item||!confirm(`Delete "${item.name}"?`))return;
+  save(load().filter(i=>i.id!==detailId));document.getElementById('detail-overlay').classList.remove('open');renderStuff();
+});
+
+// ═══════════════════════════════════════════════
+//  REPORT MODAL
+// ═══════════════════════════════════════════════
+let reportType=null,reportItemId=null;
+function openReport(type,item){
+  reportType=type;reportItemId=item.id;document.getElementById('detail-overlay').classList.remove('open');
+  if(type==='broke'){document.getElementById('report-title').textContent='Oops, Broke It';document.getElementById('report-sub').textContent=`Mark "${item.name}" as broken.`;document.getElementById('report-field-label').textContent='HOW DID IT BREAK? (optional)';document.getElementById('report-confirm').className='btn btn-purple btn-full';document.getElementById('report-confirm').textContent='⚠ Mark as Broken';}
+  else{document.getElementById('report-title').textContent='Used the Last of It';document.getElementById('report-sub').textContent=`Mark "${item.name}" as empty.`;document.getElementById('report-field-label').textContent='ANY DETAILS? (optional)';document.getElementById('report-confirm').className='btn btn-amber btn-full';document.getElementById('report-confirm').textContent='📦 Mark as Empty';}
+  document.getElementById('report-details').value='';document.getElementById('report-overlay').classList.add('open');
+}
+document.getElementById('report-confirm').addEventListener('click',()=>{
+  const items=load();const idx=items.findIndex(i=>i.id===reportItemId);if(idx===-1)return;
+  const detail=document.getElementById('report-details').value.trim();const now=new Date().toISOString();const isBroke=reportType==='broke';
+  items[idx].status=isBroke?'broken':'empty';items[idx].log=[...(items[idx].log||[]),{type:isBroke?'broken':'empty',label:isBroke?'Reported as broken':'Reported: used the last of it',detail:detail||null,at:now}];
+  save(items);document.getElementById('report-overlay').classList.remove('open');renderStuff();
+});
+document.getElementById('report-close').addEventListener('click',()=>{document.getElementById('report-overlay').classList.remove('open');setTimeout(()=>detailId&&openDetail(detailId),200)});
+document.getElementById('report-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('report-overlay'))document.getElementById('report-overlay').classList.remove('open')});
+
+// ═══════════════════════════════════════════════
+//  ADD / EDIT FORM
+// ═══════════════════════════════════════════════
+let photoData=null;
+document.getElementById('photo-input').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();reader.onload=ev=>{photoData=ev.target.result;document.getElementById('photo-preview').src=photoData;document.getElementById('photo-preview').style.display='block';document.getElementById('ph-label').style.display='none';document.getElementById('photo-remove').style.display='block';};reader.readAsDataURL(file);
+});
+document.getElementById('photo-remove').addEventListener('click',e=>{
+  e.preventDefault();e.stopPropagation();photoData=null;document.getElementById('photo-preview').style.display='none';document.getElementById('ph-label').style.display='flex';document.getElementById('photo-remove').style.display='none';document.getElementById('photo-input').value='';
+});
+
+function resetForm(){
+  editingId=null;photoData=null;
+  document.getElementById('form-title').textContent='ADD ITEM';document.getElementById('save-btn-label').textContent='Add Item';
+  ['f-name','f-desc','f-serial','f-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('photo-preview').style.display='none';document.getElementById('ph-label').style.display='flex';document.getElementById('photo-remove').style.display='none';document.getElementById('photo-input').value='';
+  document.getElementById('f-name-err').style.display='none';document.getElementById('loc-err').classList.remove('show');
+  locReset();
+}
+function openEdit(id){
+  const item=load().find(i=>i.id===id);if(!item)return;
+  editingId=id;document.getElementById('form-title').textContent='EDIT ITEM';document.getElementById('save-btn-label').textContent='Save Changes';
+  document.getElementById('f-name').value=item.name;document.getElementById('f-desc').value=item.desc||'';document.getElementById('f-serial').value=item.serial||'';document.getElementById('f-notes').value=item.notes||'';
+  if(item.photo){photoData=item.photo;document.getElementById('photo-preview').src=item.photo;document.getElementById('photo-preview').style.display='block';document.getElementById('ph-label').style.display='none';document.getElementById('photo-remove').style.display='block';}
+  else{photoData=null;document.getElementById('photo-preview').style.display='none';document.getElementById('ph-label').style.display='flex';document.getElementById('photo-remove').style.display='none';}
+  // Pre-fill location state from saved location string
+  locState={room:item.room||null,subroom:null,section:null,slot:null,subSlot:null,tbName:null,tbDrawer:null,zone:null,shelfSlot:null,locType:null,done:!!item.location};
+  if(item.location){
+    // Show as done with the full path
+    const body=document.getElementById('loc-picker-body');
+    document.getElementById('loc-breadcrumb').textContent=item.location;
+    body.innerHTML=`<div class="loc-result">📍 ${esc(item.location)}</div><button class="loc-back" id="loc-change">✎ Change location</button>`;
+    document.getElementById('loc-change').addEventListener('click',locReset);
+  } else locReset();
+  showScreen('add');
+}
+document.getElementById('add-back').addEventListener('click',()=>{editingId=null;showScreen('stuff')});
+document.getElementById('save-btn').addEventListener('click',()=>{
+  const name=document.getElementById('f-name').value.trim();
+  document.getElementById('f-name-err').style.display=name?'none':'block';
+  if(!locState.done){document.getElementById('loc-err').classList.add('show');}
+  if(!name||!locState.done)return;
+  document.getElementById('loc-err').classList.remove('show');
+  const locPath=locFullPath();
+  const room=locState.room||'';
+  const items=load();const now=new Date().toISOString();
+  const fields={name,room,location:locPath,desc:document.getElementById('f-desc').value.trim()||null,serial:document.getElementById('f-serial').value.trim()||null,notes:document.getElementById('f-notes').value.trim()||null,photo:photoData||null};
+  let newItem=null;
+  if(editingId){const idx=items.findIndex(i=>i.id===editingId);if(idx!==-1)Object.assign(items[idx],fields);}
+  else{newItem={id:genId(),...fields,status:'home',borrower:null,purpose:null,whereAt:null,addedAt:now,log:[{type:'added',label:'Added to inventory',at:now}]};items.push(newItem);}
+  save(items);editingId=null;photoData=null;
+  showScreen('stuff');
+  if(newItem)setTimeout(()=>{if(confirm(`"${newItem.name}" added! Open its QR code?`)){openDetail(newItem.id);setTimeout(()=>document.getElementById('qr-toggle').click(),400)}},200);
+});
+
+// ═══════════════════════════════════════════════
+//  MISSING SCREEN
+// ═══════════════════════════════════════════════
+function renderMissing(){
+  const items=load();const out=items.filter(i=>i.status==='out');const broken=items.filter(i=>i.status==='broken'||i.status==='empty');
+  const el=document.getElementById('missing-content');
+  if(!out.length&&!broken.length){el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:52px;height:52px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><p>All good! Everything is home. 🎉</p></div>`;return;}
+  let html='';
+  if(out.length){
+    html+=`<div style="background:color-mix(in srgb,var(--red) 10%,transparent);border:1px solid color-mix(in srgb,var(--red) 30%,transparent);border-radius:14px;padding:14px 16px;margin-bottom:16px"><div style="font-family:var(--font-head);font-size:28px;font-weight:900;color:var(--red)">${out.length}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${out.length===1?'item is':'items are'} not home</div></div>
+    <div class="section-card" style="margin-bottom:24px">${out.map(item=>`<div class="out-row" data-id="${item.id}">
+      ${item.photo?`<img class="out-photo" src="${item.photo}" alt="">`:`<div class="out-photo"><svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="width:20px;height:20px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8"/></svg></div>`}
+      <div style="flex:1;min-width:0">
+        <div class="out-name">${esc(item.name)}</div>
+        <div class="out-who">👤 ${esc(item.borrower||'Unknown')}</div>
+        ${item.purpose?`<div class="out-purpose">"${esc(item.purpose)}"</div>`:''}
+        ${item.whereAt?`<div class="out-when">📍 ${esc(item.whereAt)}</div>`:''}
+        <div class="out-when">Taken ${item.checkedOutAt?fmtDate(item.checkedOutAt):'?'} · ${esc(item.location||item.room||'')}</div>
+      </div>
+      <button class="btn btn-green" style="padding:10px 12px;font-size:12px;min-width:auto;flex:none" data-return="${item.id}">✓ Back</button>
+    </div>`).join('')}</div>`;
+  }
+  if(broken.length){
+    html+=`<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--purple);margin-bottom:10px">NEEDS ATTENTION</div>
+    <div class="section-card">${broken.map(item=>`<div class="out-row" data-id="${item.id}">
+      ${item.photo?`<img class="out-photo" src="${item.photo}" alt="">`:`<div class="out-photo"></div>`}
+      <div style="flex:1"><div class="out-name">${esc(item.name)}</div><div style="font-size:12px;margin-top:2px;color:${item.status==='broken'?'var(--purple)':'var(--amber)'}">${item.status==='broken'?'⚠ Broken':'📦 Needs restocking'}</div><div class="out-when">${esc(item.location||item.room||'')}</div></div>
+      <button class="btn btn-green" style="padding:10px 12px;font-size:12px;min-width:auto;flex:none" data-fix="${item.id}">✓ Fixed</button>
+    </div>`).join('')}</div>`;
+  }
+  el.innerHTML=html;
+  el.querySelectorAll('.out-row').forEach(row=>row.addEventListener('click',e=>{if(e.target.closest('[data-return],[data-fix]'))return;openDetail(row.dataset.id)}));
+  el.querySelectorAll('[data-return]').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation();const items=load();const idx=items.findIndex(i=>i.id===btn.dataset.return);if(idx===-1)return;
+    const now=new Date().toISOString();items[idx]={...items[idx],status:'home',borrower:null,purpose:null,whereAt:null,checkedOutAt:null,log:[...(items[idx].log||[]),{type:'returned',label:'Returned home',at:now}]};
+    save(items);renderMissing();renderStuff();
+  }));
+  el.querySelectorAll('[data-fix]').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation();const items=load();const idx=items.findIndex(i=>i.id===btn.dataset.fix);if(idx===-1)return;
+    const now=new Date().toISOString();items[idx]={...items[idx],status:'home',log:[...(items[idx].log||[]),{type:'returned',label:'Marked as fixed / restocked',at:now}]};
+    save(items);renderMissing();renderStuff();
+  }));
+}
+
+// ═══════════════════════════════════════════════
+//  LOCATIONS (QR builder — unchanged from before)
+// ═══════════════════════════════════════════════
+const LOC_ROOMS_QR=ROOMS.map(r=>({name:r,icon:ROOM_ICONS[r]||'📦',short:r.substring(0,2).toUpperCase().replace(/\s/,'')}));
+let locBuilderStep=1,locBuilderRoom=null,locBuilderZone=null,locBuilderSlot=null;
+
+function renderLocations(){
+  const locs=loadLocs();const el=document.getElementById('loc-content');
+  const savedHtml=locs.length?`<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:10px">SAVED LOCATIONS (${locs.length})</div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:24px">
+      ${locs.map(loc=>`<div class="saved-loc-row"><span class="saved-loc-code">${esc(loc.code)}</span><span class="saved-loc-name">${esc(loc.fullName)}</span><div style="display:flex;gap:6px"><button class="icon-btn blue" data-view="${loc.id}">QR</button><button class="icon-btn red" data-del="${loc.id}">✕</button></div></div>`).join('')}
+    </div>`:`<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px 0;margin-bottom:20px">No locations saved yet. Build one below!</div>`;
+  el.innerHTML=savedHtml+`<div style="font-size:11px;color:var(--blue);font-weight:700;letter-spacing:1px;margin-bottom:12px">BUILD A LOCATION CODE</div><div id="loc-builder-inner"></div>`;
+  el.querySelectorAll('[data-del]').forEach(btn=>btn.addEventListener('click',()=>{saveLocs(loadLocs().filter(l=>l.id!==btn.dataset.del));renderLocations()}));
+  el.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>{const loc=loadLocs().find(l=>l.id===btn.dataset.view);if(loc)openLocQr(loc)}));
+  locBuilderStep=1;locBuilderRoom=null;locBuilderZone=null;locBuilderSlot=null;renderLocBuilder();
+}
+
+function renderLocBuilder(){
+  const el=document.getElementById('loc-builder-inner');if(!el)return;
+  const stepsHtml=`<div class="steps-row"><div class="step-dot ${locBuilderStep>=1?locBuilderStep>1?'done':'active':''}">${locBuilderStep>1?'✓':'1'}</div><div class="step-line ${locBuilderStep>1?'done':''}"></div><div class="step-dot ${locBuilderStep>=2?locBuilderStep>2?'done':'active':''}">${locBuilderStep>2?'✓':'2'}</div><div class="step-line ${locBuilderStep>2?'done':''}"></div><div class="step-dot ${locBuilderStep>=3?'active':''}">3</div></div>`;
+  if(locBuilderStep===1){
+    el.innerHTML=stepsHtml+`<div class="step-label">STEP 1 — PICK THE ROOM</div>${LOC_ROOMS_QR.map(r=>`<div class="loc-card ${locBuilderRoom&&locBuilderRoom.name===r.name?'selected':''}" data-room='${JSON.stringify(r)}'><span class="lc-icon">${r.icon}</span><div><div class="lc-name">${r.name}</div><div class="lc-sub">Prefix: ${r.short}</div></div><svg class="lc-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px"><polyline points="20 6 9 17 4 12"/></svg></div>`).join('')}`;
+    el.querySelectorAll('.loc-card').forEach(c=>c.addEventListener('click',()=>{locBuilderRoom=JSON.parse(c.dataset.room);locBuilderStep=2;renderLocBuilder()}));
+  } else if(locBuilderStep===2){
+    el.innerHTML=stepsHtml+`<div class="step-label">STEP 2 — ZONE / SHELF / CONTAINER</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Pick a letter for the shelf, drawer, toolbox, or area within <strong style="color:var(--text)">${locBuilderRoom.name}</strong>. Or type a custom label.</p><div class="num-picker" style="grid-template-columns:repeat(5,1fr)">${'ABCDEFGHIJ'.split('').map(z=>`<button class="num-btn ${locBuilderZone===z?'selected':''}" data-z="${z}">${z}</button>`).join('')}</div><div class="custom-input-row"><input type="text" id="zone-custom2" placeholder="Custom label" maxlength="10"><button id="zone-custom-btn2">Use</button></div><button class="loc-back" id="loc-back-1">← Back</button>`;
+    el.querySelectorAll('.num-btn').forEach(b=>b.addEventListener('click',()=>{locBuilderZone=b.dataset.z;locBuilderStep=3;renderLocBuilder()}));
+    el.querySelector('#zone-custom-btn2').addEventListener('click',()=>{const v=el.querySelector('#zone-custom2').value.trim().toUpperCase().slice(0,10);if(!v)return;locBuilderZone=v;locBuilderStep=3;renderLocBuilder()});
+    el.querySelector('#loc-back-1').addEventListener('click',()=>{locBuilderStep=1;locBuilderZone=null;renderLocBuilder()});
+  } else if(locBuilderStep===3){
+    const code=`${locBuilderRoom.short}-${locBuilderZone}`;
+    el.innerHTML=stepsHtml+`<div class="step-label">STEP 3 — SLOT / POSITION NUMBER</div><p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Pick the slot number within <strong style="color:var(--text)">${locBuilderRoom.name} · Zone ${locBuilderZone}</strong>.</p><div class="num-picker">${Array.from({length:20},(_,i)=>i+1).map(n=>`<button class="num-btn ${locBuilderSlot===n?'selected':''}" data-n="${n}">${n}</button>`).join('')}</div><div class="custom-input-row"><input type="number" id="slot-custom2" placeholder="Custom #" min="1"><button id="slot-custom-btn2">Use</button></div>${locBuilderSlot?`<div class="loc-code-preview"><div class="loc-code-big">${code}-${locBuilderSlot}</div><div class="loc-code-sub">${locBuilderRoom.name} · Zone ${locBuilderZone} · Slot ${locBuilderSlot}</div></div><button class="btn btn-blue btn-full" id="loc-save-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg>Save & Generate QR</button>`:''}<button class="loc-back" id="loc-back-2" style="margin-top:8px">← Back</button>`;
+    el.querySelectorAll('.num-btn').forEach(b=>b.addEventListener('click',()=>{locBuilderSlot=parseInt(b.dataset.n);renderLocBuilder()}));
+    el.querySelector('#slot-custom-btn2').addEventListener('click',()=>{const v=parseInt(el.querySelector('#slot-custom2').value);if(!v||v<1)return;locBuilderSlot=v;renderLocBuilder()});
+    el.querySelector('#loc-back-2').addEventListener('click',()=>{locBuilderStep=2;locBuilderSlot=null;renderLocBuilder()});
+    if(locBuilderSlot){
+      el.querySelector('#loc-save-btn').addEventListener('click',()=>{
+        const code=`${locBuilderRoom.short}-${locBuilderZone}-${locBuilderSlot}`;
+        const fullName=`${locBuilderRoom.name} · Zone ${locBuilderZone} · Slot ${locBuilderSlot}`;
+        const locs=loadLocs();if(locs.find(l=>l.code===code)){alert(`Location "${code}" already exists!`);return;}
+        const loc={id:genId(),room:locBuilderRoom.name,zone:locBuilderZone,slot:locBuilderSlot,code,fullName,createdAt:new Date().toISOString()};
+        locs.push(loc);saveLocs(locs);locBuilderStep=1;locBuilderRoom=null;locBuilderZone=null;locBuilderSlot=null;
+        renderLocations();setTimeout(()=>openLocQr(loc),300);
+      });
+    }
+  }
+}
+
+function openLocQr(loc){
+  document.getElementById('lq-title').textContent=loc.fullName;
+  document.getElementById('lq-code-display').innerHTML=`<div style="font-family:var(--font-head);font-size:28px;font-weight:900;color:var(--blue);letter-spacing:4px">${loc.code}</div><div style="font-size:12px;color:var(--muted);margin-top:4px">${loc.fullName}</div>`;
+  const canvas=document.getElementById('lq-canvas');canvas.innerHTML='';
+  const qrEl=document.createElement('div');canvas.appendChild(qrEl);
+  new QRCode(qrEl,{text:qrLocVal(loc),width:200,height:200,colorDark:'#E8E8F0',colorLight:'#12121A'});
+  document.getElementById('lq-download').onclick=()=>setTimeout(()=>{
+    const c=qrEl.querySelector('canvas');if(!c)return;
+    const out=document.createElement('canvas');out.width=c.width;out.height=c.height+70;
+    const ctx=out.getContext('2d');ctx.fillStyle='#12121A';ctx.fillRect(0,0,out.width,out.height);ctx.drawImage(c,0,0);
+    ctx.fillStyle='#4D9FFF';ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.fillText(loc.code,out.width/2,c.height+28);
+    ctx.fillStyle='#6B6B8A';ctx.font='12px sans-serif';ctx.fillText(loc.fullName,out.width/2,c.height+48);
+    const a=document.createElement('a');a.href=out.toDataURL('image/png');a.download=`location-${loc.code}.png`;a.click();},150);
+  document.getElementById('lq-print').onclick=()=>setTimeout(()=>{
+    const c=qrEl.querySelector('canvas');if(!c)return;
+    document.getElementById('print-area').innerHTML=`<div class="print-qr-item"><img src="${c.toDataURL()}" style="width:200px"><p>${loc.code}</p><span>${loc.fullName}</span></div>`;window.print();},150);
+  document.getElementById('loc-qr-overlay').classList.add('open');
+}
+document.getElementById('lq-close').addEventListener('click',()=>document.getElementById('loc-qr-overlay').classList.remove('open'));
+document.getElementById('loc-qr-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('loc-qr-overlay'))document.getElementById('loc-qr-overlay').classList.remove('open')});
+
+// ═══════════════════════════════════════════════
+//  SCANNER
+// ═══════════════════════════════════════════════
+let stream=null,scanActive=false,scanInterval=null,barcodeDetector=null;
+async function initScanner(){
+  const video=document.getElementById('scanner-video');const wrap=document.getElementById('scanner-wrap');const permBox=document.getElementById('cam-perm-box');
+  if(stream){scanActive=true;return}
+  if('BarcodeDetector' in window)barcodeDetector=new BarcodeDetector({formats:['qr_code']});
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});video.srcObject=stream;wrap.style.display='block';permBox.style.display='none';scanActive=true;startScanLoop();}
+  catch{wrap.style.display='none';permBox.style.display='flex'}
+}
+document.getElementById('req-cam-btn').addEventListener('click',initScanner);
+function startScanLoop(){
+  if(scanInterval)clearInterval(scanInterval);
+  scanInterval=setInterval(async()=>{
+    if(!scanActive||!stream||!barcodeDetector)return;const video=document.getElementById('scanner-video');if(video.readyState<2)return;
+    try{const codes=await barcodeDetector.detect(video);if(codes.length){scanActive=false;if(navigator.vibrate)navigator.vibrate(80);handleScanned(codes[0].rawValue)}}catch{}
+  },300);
+}
+function stopScanner(){scanActive=false;if(scanInterval){clearInterval(scanInterval);scanInterval=null}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+
+function handleScanned(val){
+  const items=load();
+  try{const p=JSON.parse(val);
+    if(p.type==='location'){const locs=loadLocs();const loc=locs.find(l=>l.code===p.code);openLocScanResult(p.code,p.name,loc,items);return;}
+    if(p.type==='item'){const item=items.find(i=>i.id===p.id);if(item){openScanResult(item);return;}}
+  }catch{}
+  const v=val.trim().toLowerCase();const item=items.find(i=>i.name.toLowerCase()===v);
+  if(item){openScanResult(item);return;}
+  document.getElementById('not-found-text').textContent=`No item found for "${val}"`;document.getElementById('not-found-bar').style.display='flex';setTimeout(()=>{scanActive=true},2000);
+}
+document.getElementById('manual-btn').addEventListener('click',()=>{const v=document.getElementById('manual-inp').value.trim();if(!v)return;document.getElementById('manual-inp').value='';handleScanned(v)});
+document.getElementById('manual-inp').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('manual-btn').click()});
+document.getElementById('nf-close').addEventListener('click',()=>{document.getElementById('not-found-bar').style.display='none';scanActive=true});
+
+function openLocScanResult(code,name,loc,items){
+  document.getElementById('ls-name').textContent=loc?loc.fullName:name;document.getElementById('ls-code').textContent=code;
+  const room=loc?loc.room:name;const matching=items.filter(i=>i.room===room);
+  const lsItems=document.getElementById('ls-items');
+  if(!matching.length){lsItems.innerHTML=`<div style="color:var(--muted);font-size:14px;padding:16px 0">No items assigned to this location yet.</div>`;}
+  else{lsItems.innerHTML=matching.map(item=>{const st=statusLabel(item);return`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">${item.photo?`<img style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0" src="${item.photo}" alt="">`:`<div style="width:40px;height:40px;border-radius:8px;background:var(--panel);flex-shrink:0"></div>`}<div style="flex:1"><div style="font-family:var(--font-head);font-size:14px;font-weight:700">${esc(item.name)}</div><div style="font-size:11px;color:var(--muted)">${esc(item.location||item.room||'')}</div></div><span class="status-chip ${st.cls}">${st.label}</span></div>`;}).join('');}
+  document.getElementById('loc-scan-overlay').classList.add('open');
+}
+document.getElementById('ls-close').addEventListener('click',()=>{document.getElementById('loc-scan-overlay').classList.remove('open');setTimeout(()=>{scanActive=true},500)});
+document.getElementById('loc-scan-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('loc-scan-overlay')){document.getElementById('loc-scan-overlay').classList.remove('open');setTimeout(()=>{scanActive=true},500)}});
+
+let scanItemId=null;
+function openScanResult(item){
+  scanItemId=item.id;const isOut=item.status==='out';const st=statusLabel(item);
+  document.getElementById('sr-name').textContent=item.name;
+  const pw=document.getElementById('sr-photo-wrap');if(item.photo){pw.style.display='block';document.getElementById('sr-photo').src=item.photo}else pw.style.display='none';
+  document.getElementById('sr-status').innerHTML=`<span class="badge badge-${st.badgeCls}">${st.label}</span>`;
+  document.getElementById('sr-rows').innerHTML=[
+    ['LOCATION',item.location||item.room||'—'],
+    item.desc?['DESCRIPTION',item.desc]:null,
+    isOut&&item.borrower?['BORROWED BY',item.borrower]:null,
+    isOut&&item.purpose?['FOR',item.purpose]:null,
+    isOut&&item.whereAt?['TAKEN TO',item.whereAt]:null,
+    isOut&&item.checkedOutAt?['SINCE',fmtDate(item.checkedOutAt)]:null,
+  ].filter(Boolean).map(([l,v])=>`<div class="detail-row"><span class="dl">${l}</span><span class="dv">${esc(v)}</span></div>`).join('');
+  const actEl=document.getElementById('sr-actions');
+  if(isOut){
+    actEl.innerHTML=`<button class="btn btn-green btn-full" id="sr-return"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg>Mark as Returned</button>`;
+    document.getElementById('sr-return').addEventListener('click',()=>{
+      const items=load();const idx=items.findIndex(i=>i.id===scanItemId);if(idx===-1)return;const now=new Date().toISOString();
+      items[idx]={...items[idx],status:'home',borrower:null,purpose:null,whereAt:null,checkedOutAt:null,log:[...(items[idx].log||[]),{type:'returned',label:'Returned home',at:now}]};
+      save(items);document.getElementById('scan-overlay').classList.remove('open');renderStuff();
+    });
+  } else {
+    actEl.innerHTML=`
+      <div style="margin-bottom:6px"><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:5px">WHO'S TAKING IT? <span style="color:var(--red)">*</span></div><input type="text" id="sr-borrower" placeholder="Enter their name" class="co-input" style="width:100%;margin-bottom:4px"><div id="sr-borrower-err" style="font-size:11px;color:var(--red);display:none">A name is required</div></div>
+      <div style="margin-bottom:6px"><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:5px">WHAT FOR?</div><input type="text" id="sr-purpose" placeholder="e.g. fixing the sink" class="co-input" style="width:100%"></div>
+      <div style="margin-bottom:10px"><div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:5px">TAKING IT WHERE?</div><input type="text" id="sr-where" placeholder="e.g. bathroom, outside" class="co-input" style="width:100%"></div>
+      <button class="btn btn-amber btn-full" id="sr-checkout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>Check Out</button>`;
+    document.getElementById('sr-borrower').addEventListener('input',()=>{document.getElementById('sr-borrower').classList.remove('err');document.getElementById('sr-borrower-err').style.display='none'});
+    document.getElementById('sr-checkout').addEventListener('click',()=>{
+      const who=document.getElementById('sr-borrower').value.trim();
+      if(!who){document.getElementById('sr-borrower').classList.add('err');document.getElementById('sr-borrower-err').style.display='block';document.getElementById('sr-borrower').focus();return;}
+      const purpose=document.getElementById('sr-purpose').value.trim();const where=document.getElementById('sr-where').value.trim();
+      const items=load();const idx=items.findIndex(i=>i.id===scanItemId);if(idx===-1)return;const now=new Date().toISOString();
+      items[idx]={...items[idx],status:'out',borrower:who,purpose:purpose||null,whereAt:where||null,checkedOutAt:now,log:[...(items[idx].log||[]),{type:'out',label:`Taken by ${who}`,detail:[purpose&&`For: ${purpose}`,where&&`Going to: ${where}`].filter(Boolean).join(' · ')||null,at:now}]};
+      save(items);document.getElementById('scan-overlay').classList.remove('open');renderStuff();
+    });
+  }
+  document.getElementById('scan-overlay').classList.add('open');
+}
+document.getElementById('scan-close').addEventListener('click',resetScan);document.getElementById('scan-again-btn').addEventListener('click',resetScan);document.getElementById('scan-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('scan-overlay'))resetScan()});
+function resetScan(){document.getElementById('scan-overlay').classList.remove('open');scanItemId=null;setTimeout(()=>{scanActive=true},500)}
+
+// ═══════════════════════════════════════════════
+//  PWA
+// ═══════════════════════════════════════════════
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('install-banner').style.display='flex'});
+document.getElementById('install-btn').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('install-banner').style.display='none'});
+document.getElementById('dismiss-banner').addEventListener('click',()=>document.getElementById('install-banner').style.display='none');
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
+
+renderStuff();
+</script>
+</body>
+</html>
